@@ -1,0 +1,15 @@
+{
+  "name": "GardenMarket",
+  "short_name": "GardenMarket",
+  "description": "Orqanik ərzaq — sifariş üçün onlayn mağaza",
+  "start_url": "/gardenmarket/",
+  "scope": "/gardenmarket/",
+  "display": "standalone",
+  "background_color": "#f3f7f1",
+  "theme_color": "#4C9A2A",
+  "icons": [
+    { "src": "/gardenmarket/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/gardenmarket/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/gardenmarket/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
