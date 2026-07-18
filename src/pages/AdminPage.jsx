@@ -693,11 +693,35 @@ function OrdersTab({ headers }) {
     load(page);
   };
 
+  const del = async (id) => {
+    if (!confirm(t.confirmDeleteOrder)) return;
+    await fetch(`${API_URL}/admin/orders/${id}`, { method: 'DELETE', headers: headers(true) });
+    load(page);
+  };
+
+  // Fetch the CSV with the admin header, then trigger a client-side download.
+  const exportCsv = async (report) => {
+    const res = await fetch(`${API_URL}/admin/orders/export?report=${report}&date=${date}`, { headers: headers() });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${report === 'products' ? 'satilanlar' : 'sifarisler'}-${date}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const chip = (active) => `rounded-full px-3 py-1 text-xs font-medium transition-colors ${active ? 'bg-accent text-accent-ink' : 'border border-line bg-bg text-ink'}`;
 
   return (
     <div>
-      <h2 className="mb-4 font-display text-xl font-bold text-ink">{t.orders}</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-xl font-bold text-ink">{t.orders}</h2>
+        <div className="flex gap-2">
+          <button onClick={() => exportCsv('orders')} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-accent">⬇ {t.exportOrders}</button>
+          <button onClick={() => exportCsv('products')} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-accent">⬇ {t.exportSold}</button>
+        </div>
+      </div>
 
       {/* stats — Orders / Revenue (delivered only) / New / Delivered */}
       {stats && (
@@ -768,7 +792,10 @@ function OrdersTab({ headers }) {
               <ul className="mt-1 text-xs text-muted">
                 {list.map((it, i) => <li key={i}>• {it.name} ×{it.qty}</li>)}
               </ul>
-              <div className="mt-1 text-[11px] text-muted">{new Date(o.created_at).toLocaleString()}</div>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="text-[11px] text-muted">{new Date(o.created_at).toLocaleString()}</span>
+                <button onClick={() => del(o.id)} className="rounded-lg border border-line px-2 py-1 text-[11px] text-red-500 transition hover:border-red-500/50">🗑 {t.del}</button>
+              </div>
               {active && (
                 <div className="mt-3 flex gap-2">
                   {o.status === 'new' && (
