@@ -836,9 +836,11 @@ const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'satur
 
 function SettingsTab({ headers }) {
   const { t } = useAdminLang();
+  const { apiBase } = useApp();
   const [s, setS] = useState(null);
   const [hours, setHours] = useState({});
   const [saved, setSaved] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/settings`, { headers: headers() })
@@ -857,6 +859,22 @@ function SettingsTab({ headers }) {
   const setDay = (day, v) => setHours((p) => ({ ...p, [day]: v }));
   const name = parseML(s.restaurant_name);
 
+  // Logo upload goes through a dedicated multipart endpoint (persists to
+  // Cloudinary/local + the logo_image setting immediately) — the plain settings
+  // PUT is JSON-only. `set` also mirrors the new URL into local state.
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    setLogoBusy(true);
+    const fd = new FormData();
+    fd.append('key', 'logo_image');
+    fd.append('image', file);
+    try {
+      const res = await fetch(`${API_URL}/admin/settings-image`, { method: 'POST', headers: headers(), body: fd });
+      const d = await res.json();
+      if (d.value) set('logo_image', d.value);
+    } catch { /* ignore */ } finally { setLogoBusy(false); }
+  };
+
   const save = async (e) => {
     e.preventDefault();
     // Keep only non-empty days so a blank field hides that day on the menu.
@@ -874,6 +892,24 @@ function SettingsTab({ headers }) {
     <form onSubmit={save} className="max-w-lg space-y-4">
       <h2 className="font-display text-xl font-bold text-ink">{t.settings}</h2>
       <MultiLang label={t.cafeName} value={name} onChange={(v) => set('restaurant_name', JSON.stringify(v))} />
+
+      <div>
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{t.logo}</span>
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 p-3">
+          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface">
+            {s.logo_image ? <img src={assetUrl(s.logo_image, apiBase)} alt="" className="h-full w-full object-contain" /> : <span className="text-2xl">🛒</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:border-accent ${logoBusy ? 'opacity-60' : ''}`}>
+              {logoBusy ? t.loading : t.uploadLogo}
+              <input type="file" accept="image/*" disabled={logoBusy} onChange={(e) => e.target.files[0] && uploadLogo(e.target.files[0])} className="hidden" />
+            </label>
+            {s.logo_image ? <button type="button" onClick={() => set('logo_image', '')} className="rounded-lg border border-line px-3 py-1.5 text-xs text-red-500">{t.removePhoto}</button> : null}
+          </div>
+        </div>
+        <p className="mt-1 text-[11px] text-muted">{t.logoHint}</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <Field label={t.phone} value={s.phone || ''} onChange={(e) => set('phone', e.target.value)} />
         <Field label={t.instagram} value={s.instagram || ''} onChange={(e) => set('instagram', e.target.value)} />
