@@ -63,8 +63,11 @@ export default function DishCard({ dish, category, onOpen }) {
       <div className="flex flex-1 flex-col gap-1 p-3">
         <h3 className="font-display text-base font-semibold leading-tight text-ink">{tl(dish.name)}</h3>
         <p className="line-clamp-2 flex-1 text-xs text-muted">{tl(dish.description)}</p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="whitespace-nowrap font-display text-lg font-bold text-accent">
+        {/* Price on its own row, action full-width below — a side-by-side row
+            overflowed the (overflow-hidden) card once the price carried a unit
+            suffix like "100.00 AZN/əd", clipping the button. */}
+        <div className="mt-2 space-y-2">
+          <div className="truncate font-display text-lg font-bold text-accent">
             {sizes.length > 0 ? (
               <>
                 {formatPrice(Math.min(...sizes.map((s) => s.price)))}
@@ -73,18 +76,18 @@ export default function DishCard({ dish, category, onOpen }) {
             ) : (
               formatUnitPrice(dish.price, dish.unit)
             )}
-          </span>
+          </div>
           {cartLine ? (
-            <div className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-1 py-1 text-accent-ink">
-              <button onClick={(e) => step(e, -1)} className="grid h-5 w-5 place-items-center rounded text-sm font-bold active:scale-90" aria-label="−">−</button>
-              <span className="w-4 text-center text-xs font-bold">{cartLine.qty}</span>
-              <button onClick={(e) => step(e, 1)} className="grid h-5 w-5 place-items-center rounded text-sm font-bold active:scale-90" aria-label="+">+</button>
+            <div className="flex items-center justify-between rounded-lg bg-accent px-2 py-1 text-accent-ink">
+              <button onClick={(e) => step(e, -1)} className="grid h-6 w-9 place-items-center rounded text-lg font-bold active:scale-90" aria-label="−">−</button>
+              <span className="text-sm font-bold">{cartLine.qty}</span>
+              <button onClick={(e) => step(e, 1)} className="grid h-6 w-9 place-items-center rounded text-lg font-bold active:scale-90" aria-label="+">+</button>
             </div>
           ) : (
             <button
               onClick={handleAdd}
               disabled={soldOut}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`w-full rounded-lg py-2 text-xs font-semibold transition ${
                 soldOut ? 'cursor-not-allowed bg-surface-2 text-muted' : 'bg-accent text-accent-ink active:scale-95'
               }`}
             >
