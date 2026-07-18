@@ -11,11 +11,62 @@ export default function AIChat() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addedId, setAddedId] = useState(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Voice input: record a short clip, send it to Groq Whisper (/ai/transcribe),
+  // and drop the transcript into the input so the customer can review + send.
+  const startRecording = async () => {
+    if (recording || transcribing || loading) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data?.size) chunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const mime = rec.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mime });
+        chunksRef.current = [];
+        if (!blob.size) return;
+        setTranscribing(true);
+        try {
+          const ext = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
+          const fd = new FormData();
+          fd.append('audio', blob, `voice.${ext}`);
+          fd.append('language', language);
+          const res = await fetch(`${apiUrl}/ai/transcribe`, { method: 'POST', body: fd });
+          const data = await res.json();
+          const text = (data.text || '').trim();
+          if (text) setInput((prev) => (prev ? prev.trim() + ' ' : '') + text);
+        } catch { /* ignore — typing still works */ } finally {
+          setTranscribing(false);
+        }
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      setRecording(false); // mic denied/unsupported — silently fall back to typing
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current && recording) {
+      recorderRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  const toggleRecording = () => (recording ? stopRecording() : startRecording());
 
   const send = async (override) => {
     const text = (override ?? input).trim();
@@ -145,10 +196,22 @@ export default function AIChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder={t.aiPlaceholder}
-              className="flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:border-accent"
+              placeholder={transcribing ? t.transcribing : recording ? t.listening : t.aiPlaceholder}
+              disabled={recording || transcribing}
+              className="flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:border-accent disabled:opacity-70"
             />
-            <button onClick={() => send()} disabled={loading} className="rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50">
+            <button
+              onClick={toggleRecording}
+              disabled={loading || transcribing}
+              aria-label={t.voice}
+              title={t.voice}
+              className={`grid w-10 shrink-0 place-items-center rounded-xl text-lg transition disabled:opacity-50 ${
+                recording ? 'animate-pulse bg-red-600 text-white' : 'bg-surface-2 text-ink hover:bg-surface'
+              }`}
+            >
+              {transcribing ? '…' : recording ? '⏹' : '🎤'}
+            </button>
+            <button onClick={() => send()} disabled={loading || recording} className="rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50">
               {t.send}
             </button>
           </div>
