@@ -181,7 +181,9 @@ function AdminPanel() {
               {adminLang.toUpperCase()}
             </button>
             <button onClick={toggleTheme} className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-bg">{theme === 'dark' ? '☀️' : '🌙'}</button>
-            <a href="/" className="rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink">{t.viewMenu}</a>
+            {/* Plain <a>, not a router Link — a bare href="/" would go to the domain
+                root (menyuqr.com/), not this app's own base under /gardenmarket/. */}
+            <a href={import.meta.env.BASE_URL} className="rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink">{t.viewMenu}</a>
             <button onClick={logout} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-ink">{t.logout}</button>
           </div>
         </div>
@@ -635,7 +637,7 @@ function playOrderChime() {
 }
 
 function OrdersTab({ headers }) {
-  const { t } = useAdminLang();
+  const { t, lang } = useAdminLang();
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -644,6 +646,7 @@ function OrdersTab({ headers }) {
   const [stats, setStats] = useState(null);
   const [toast, setToast] = useState(null);
   const [cancelId, setCancelId] = useState(null); // order pending cancel confirmation
+  const [selected, setSelected] = useState(new Set()); // order ids checked on the current page
   const toastTimer = useRef(null);
   const statusLabels = { new: t.statusNew, picking: t.statusPicking, ready: t.statusReady, done: t.statusDone, cancelled: t.statusCancelled };
 
@@ -662,7 +665,7 @@ function OrdersTab({ headers }) {
 
   const load = useCallback((p = page) => {
     fetch(`${API_URL}/admin/orders?${query(p)}`, { headers: headers() })
-      .then((r) => r.json()).then((d) => { setItems(d.items || []); setTotalPages(d.totalPages || 1); });
+      .then((r) => r.json()).then((d) => { setItems(d.items || []); setTotalPages(d.totalPages || 1); setSelected(new Set()); });
     loadStats();
   }, [page, headers, query, loadStats]);
 
@@ -703,15 +706,27 @@ function OrdersTab({ headers }) {
     load(page);
   };
 
-  const del = async (id) => {
-    if (!confirm(t.confirmDeleteOrder)) return;
-    await fetch(`${API_URL}/admin/orders/${id}`, { method: 'DELETE', headers: headers(true) });
+  // Selection-based delete: check one or more orders, then delete them all in a
+  // single request. Replaces per-card delete buttons so removing many orders
+  // doesn't mean confirming a dialog once per order.
+  const toggleSelect = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const allSelected = items.length > 0 && items.every((o) => selected.has(o.id));
+  const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(items.map((o) => o.id)));
+  const deleteSelected = async () => {
+    if (!selected.size || !confirm(`${t.confirmDeleteOrders} (${selected.size})`)) return;
+    await fetch(`${API_URL}/admin/orders`, { method: 'DELETE', headers: headers(true), body: JSON.stringify({ ids: [...selected] }) });
     load(page);
   };
 
   // Fetch the CSV with the admin header, then trigger a client-side download.
+  // `lang` matches the admin's current language so headers/labels aren't
+  // hardcoded to one language regardless of the switcher.
   const exportCsv = async (report) => {
-    const res = await fetch(`${API_URL}/admin/orders/export?report=${report}&date=${date}`, { headers: headers() });
+    const res = await fetch(`${API_URL}/admin/orders/export?report=${report}&date=${date}&lang=${lang}`, { headers: headers() });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -772,6 +787,20 @@ function OrdersTab({ headers }) {
         ))}
       </div>
 
+      {items.length > 0 && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <label className="flex items-center gap-2 text-xs font-medium text-muted">
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+            {t.selectAll}
+          </label>
+          {selected.size > 0 && (
+            <button onClick={deleteSelected} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700">
+              🗑 {t.deleteSelected} ({selected.size})
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-2">
         {items.length === 0 && <p className="text-muted">{t.noOrders}</p>}
         {items.map((o) => {
@@ -787,12 +816,21 @@ function OrdersTab({ headers }) {
           return (
             <div key={o.id} className={`rounded-xl border p-3 ${cardClass}`}>
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-ink">{t.orderNo} #{o.id} · {o.total} {o.currency}</div>
-                  <div className="mt-0.5 text-xs font-medium text-muted">
-                    {isDelivery ? `🚚 ${t.delivery}` : `🏪 ${t.pickup}`}
-                    {isDelivery && o.delivery_address ? ` · ${o.delivery_address}` : ''}
-                    {o.customer_phone ? ` · ${o.customer_phone}` : ''}
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(o.id)}
+                    onChange={() => toggleSelect(o.id)}
+                    className="mt-1 shrink-0"
+                    aria-label={t.selectOrder}
+                  />
+                  <div>
+                    <div className="text-sm font-semibold text-ink">{t.orderNo} #{o.id} · {o.total} {o.currency}</div>
+                    <div className="mt-0.5 text-xs font-medium text-muted">
+                      {isDelivery ? `🚚 ${t.delivery}` : `🏪 ${t.pickup}`}
+                      {isDelivery && o.delivery_address ? ` · ${o.delivery_address}` : ''}
+                      {o.customer_phone ? ` · ${o.customer_phone}` : ''}
+                    </div>
                   </div>
                 </div>
                 <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[o.status] || 'border-line text-muted'}`}>
@@ -802,10 +840,7 @@ function OrdersTab({ headers }) {
               <ul className="mt-1 text-xs text-muted">
                 {list.map((it, i) => <li key={i}>• {it.name} ×{it.qty}</li>)}
               </ul>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-[11px] text-muted">{orderTime(o.created_at)}</span>
-                <button onClick={() => del(o.id)} className="rounded-lg border border-line px-2 py-1 text-[11px] text-red-500 transition hover:border-red-500/50">🗑 {t.del}</button>
-              </div>
+              <div className="mt-1 text-[11px] text-muted">{orderTime(o.created_at)}</div>
               {active && (
                 <div className="mt-3 flex gap-2">
                   {o.status === 'new' && (
