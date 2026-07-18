@@ -19,6 +19,16 @@ function parseML(value) {
   }
 }
 
+// SQLite CURRENT_TIMESTAMP is UTC "YYYY-MM-DD HH:MM:SS" with no zone. `new Date()`
+// would read it as LOCAL time and show it hours off. Mark it UTC, then format to
+// the viewer's local time.
+function orderTime(s) {
+  if (!s) return '';
+  const iso = /[TZ]/.test(s) ? s : s.replace(' ', 'T') + 'Z';
+  const d = new Date(iso);
+  return isNaN(d) ? s : d.toLocaleString();
+}
+
 function MultiLang({ label, value, onChange, textarea }) {
   const { lang: adminLang } = useAdminLang();
   const [lang, setLang] = useState(adminLang);
@@ -793,7 +803,7 @@ function OrdersTab({ headers }) {
                 {list.map((it, i) => <li key={i}>• {it.name} ×{it.qty}</li>)}
               </ul>
               <div className="mt-1 flex items-center justify-between">
-                <span className="text-[11px] text-muted">{new Date(o.created_at).toLocaleString()}</span>
+                <span className="text-[11px] text-muted">{orderTime(o.created_at)}</span>
                 <button onClick={() => del(o.id)} className="rounded-lg border border-line px-2 py-1 text-[11px] text-red-500 transition hover:border-red-500/50">🗑 {t.del}</button>
               </div>
               {active && (

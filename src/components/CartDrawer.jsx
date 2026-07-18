@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { assetUrl } from '../api.js';
 
 export default function CartDrawer({ open, onClose }) {
-  const { tl, formatPrice, convertPrice, currency, settings, t, apiUrl, apiBase } = useApp();
+  const { tl, formatPrice, convertPrice, currency, settings, t, apiUrl, apiBase, unitLabel } = useApp();
   const { items, updateQty, remove, clear, totalAZN } = useCart();
 
   // Unlike the café this was forked from there is no table number: a shopper
@@ -28,13 +28,20 @@ export default function CartDrawer({ open, onClose }) {
     setAddressError(false);
     setSubmitting(true);
 
-    const lines = items.map((i) => `• ${tl(i.name)}${i.size ? ` (${i.size})` : ''} ×${i.qty} — ${formatPrice(i.price * i.qty)}`);
+    // Each line shows the unit price so it's clear how the total is made up:
+    // "Çolpa: 2 × 18.00 AZN/əd = 36.00 AZN". No leading emoji — some phones
+    // render it as a broken � in the WhatsApp text.
+    const lines = items.map((i) => {
+      const u = unitLabel ? unitLabel(i.unit) : '';
+      const sz = i.size ? ` (${i.size})` : '';
+      return `• ${tl(i.name)}${sz}: ${i.qty} × ${formatPrice(i.price)}${u ? `/${u}` : ''} = ${formatPrice(i.price * i.qty)}`;
+    });
     const header = tl(settings.restaurant_name) || 'GardenMarket';
     const modeStr = fulfillment === 'delivery'
       ? `\n${t.delivery}: ${address.trim()}`
       : `\n${t.pickup}`;
     const feeStr = feeApplies ? `\n${t.deliveryFee}: ${formatPrice(deliveryFee)}` : '';
-    const text = `🛒 ${header}${modeStr}\n\n${t.yourOrder}:\n${lines.join('\n')}${feeStr}\n\n${t.total}: ${formatPrice(payableAZN)}`;
+    const text = `${header}${modeStr}\n\n${t.yourOrder}:\n${lines.join('\n')}${feeStr}\n\n${t.total}: ${formatPrice(payableAZN)}`;
 
     // Persist the order (best effort — WhatsApp still opens if this fails).
     if (apiUrl) {
