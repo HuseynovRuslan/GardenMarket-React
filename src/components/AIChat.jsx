@@ -4,13 +4,14 @@ import { useCart } from '../context/CartContext.jsx';
 import { assetUrl, dishSizes } from '../api.js';
 
 export default function AIChat() {
-  const { language, tl, formatPrice, t, apiUrl, apiBase, activeRestaurant } = useApp();
+  const { language, tl, formatPrice, unitLabel, t, apiUrl, apiBase, activeRestaurant } = useApp();
   const { add, count } = useCart();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addedId, setAddedId] = useState(null);
+  const [addedAllIdx, setAddedAllIdx] = useState(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef(null);
@@ -22,7 +23,8 @@ export default function AIChat() {
   }, [messages, loading]);
 
   // Voice input: record a short clip, send it to Groq Whisper (/ai/transcribe),
-  // and drop the transcript into the input so the customer can review + send.
+  // then auto-send the transcript so the assistant parses it into a cart the
+  // customer can add with one tap.
   const startRecording = async () => {
     if (recording || transcribing || loading) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return;
@@ -46,7 +48,7 @@ export default function AIChat() {
           const res = await fetch(`${apiUrl}/ai/transcribe`, { method: 'POST', body: fd });
           const data = await res.json();
           const text = (data.text || '').trim();
-          if (text) setInput((prev) => (prev ? prev.trim() + ' ' : '') + text);
+          if (text) send(text); // speak → auto-send → cart preview
         } catch { /* ignore — typing still works */ } finally {
           setTranscribing(false);
         }
@@ -82,9 +84,9 @@ export default function AIChat() {
         body: JSON.stringify({ message: text, language, history }),
       });
       const data = await res.json();
-      setMessages((p) => [...p, { role: 'assistant', content: data.reply, dishes: data.dishes || [] }]);
+      setMessages((p) => [...p, { role: 'assistant', content: data.reply, cart: data.cart || [] }]);
     } catch {
-      setMessages((p) => [...p, { role: 'assistant', content: '⚠️', dishes: [] }]);
+      setMessages((p) => [...p, { role: 'assistant', content: '⚠️', cart: [] }]);
     } finally {
       setLoading(false);
     }
@@ -92,11 +94,11 @@ export default function AIChat() {
 
   if (!apiUrl || activeRestaurant?.aiEnabled === false) return null;
 
-  const quickAdd = (d) => {
-    // Default to the smallest size variant when the dish has sizes.
-    add(d, 1, dishSizes(d)[0] || null);
-    setAddedId(d.id);
-    setTimeout(() => setAddedId(null), 1500);
+  // Add every product the assistant parsed from the order, with its quantity.
+  const addAll = (cart, idx) => {
+    cart.forEach((c) => add(c, c.qty, dishSizes(c)[0] || null));
+    setAddedAllIdx(idx);
+    setTimeout(() => setAddedAllIdx(null), 2000);
   };
 
   return (
@@ -165,25 +167,32 @@ export default function AIChat() {
                 >
                   {m.content}
                 </span>
-                {m.dishes && m.dishes.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {m.dishes.map((d) => (
-                      <div key={d.id} className="flex items-center gap-2 rounded-xl border border-line bg-bg p-2">
-                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-2 text-lg">
-                          {d.image ? <img src={assetUrl(d.image, apiBase)} alt="" className="h-full w-full rounded-lg object-cover" /> : '🛒'}
+                {m.cart && m.cart.length > 0 && (
+                  <div className="mt-2 rounded-xl border border-line bg-bg p-2">
+                    <div className="space-y-1.5">
+                      {m.cart.map((c) => (
+                        <div key={c.id} className="flex items-center gap-2">
+                          <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-base">
+                            {c.image ? <img src={assetUrl(c.image, apiBase)} alt="" className="h-full w-full object-cover" /> : '🛒'}
+                          </div>
+                          <div className="min-w-0 flex-1 text-xs leading-tight">
+                            <span className="font-semibold text-ink">{tl(c.name)}</span>
+                            <span className="text-muted"> × {c.qty} {unitLabel(c.unit)}</span>
+                          </div>
+                          <span className="shrink-0 text-[11px] font-semibold text-accent">{formatPrice(c.price * c.qty)}</span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-semibold text-ink">{tl(d.name)}</div>
-                          <div className="text-[11px] text-accent">{formatPrice(d.price)}</div>
-                        </div>
-                        <button
-                          onClick={() => quickAdd(d)}
-                          className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${addedId === d.id ? 'bg-emerald-600 text-white' : 'bg-accent text-accent-ink'}`}
-                        >
-                          {addedId === d.id ? '✓' : `+ ${t.add}`}
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => addAll(m.cart, i)}
+                      className={`mt-2 w-full rounded-lg py-2 text-xs font-bold transition ${
+                        addedAllIdx === i ? 'bg-emerald-600 text-white' : 'bg-accent text-accent-ink active:scale-[0.98]'
+                      }`}
+                    >
+                      {addedAllIdx === i
+                        ? `✓ ${t.added}`
+                        : `🧺 ${t.addAll} · ${formatPrice(m.cart.reduce((s, c) => s + c.price * c.qty, 0))}`}
+                    </button>
                   </div>
                 )}
               </div>
