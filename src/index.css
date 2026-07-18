@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Note: --accent is overwritten at runtime from the store's accent_color
+   setting (see AppContext), so the value here is only the pre-fetch default. */
+:root {
+  --bg: #f3f7f1;
+  --surface: #ffffff;
+  --surface-2: #e7f0e3;
+  --text: #1c2b1a;
+  --muted: #6b7d67;
+  --border: #d8e5d3;
+  --accent: #4c9a2a;
+  --accent-ink: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg: #101711;
+  --surface: #18211a;
+  --surface-2: #212c22;
+  --text: #e8f1e6;
+  --muted: #98ab94;
+  --border: #2c3a2e;
+  --accent-ink: #ffffff;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  /* A grocery store wants a plain, legible voice — not the café's serif. Both
+     tokens point at Inter so .font-display stays a valid hook for headings. */
+  --font-display: "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+/* offset anchor targets so the sticky navbar doesn't cover them */
+#menu, #about, #contact {
+  scroll-margin-top: 120px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* subtle scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fadeUp 0.4s ease both; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in { animation: slideIn 0.3s ease both; }
+
+@keyframes cartbar-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}

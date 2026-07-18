@@ -1,0 +1,16 @@
+services:
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Local compose build points the SPA at a local API on :3100; in Coolify
+        # set this build arg to the deployed API host (https://gardenmarket.bahram.site).
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:3100}
+    image: gardenmarket-client
+    container_name: gardenmarket-client
+    ports:
+      - "8082:3000"
+    restart: unless-stopped
+    # Static React SPA only. The backend runs separately; the app reaches it
+    # directly via the VITE_API_BASE URL baked in at build time (see src/api.js).
