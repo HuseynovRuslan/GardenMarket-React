@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { assetUrl, dishSizes, isOutOfStock } from '../api.js';
@@ -6,10 +5,14 @@ import { CategoryIcon } from '../categoryIcons.jsx';
 
 export default function DishCard({ dish, category, onOpen }) {
   const { tl, formatPrice, formatUnitPrice, t, apiBase } = useApp();
-  const { add } = useCart();
-  const [justAdded, setJustAdded] = useState(false);
+  const { items, add, updateQty } = useCart();
   const sizes = dishSizes(dish);
   const soldOut = isOutOfStock(dish);
+
+  // Once the item is in the cart, the Add button turns into a live −/+
+  // stepper (matches this dish's actual cart line) so a second tap on the
+  // grid is enough to grab 2+ — no need to open the modal just to bump qty.
+  const cartLine = sizes.length === 0 ? items.find((i) => i.key === String(dish.id)) : null;
 
   const handleAdd = (e) => {
     e.stopPropagation();
@@ -20,8 +23,11 @@ export default function DishCard({ dish, category, onOpen }) {
       return;
     }
     add(dish);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 1500);
+  };
+
+  const step = (e, delta) => {
+    e.stopPropagation();
+    if (cartLine) updateQty(cartLine.key, cartLine.qty + delta);
   };
 
   return (
@@ -58,7 +64,7 @@ export default function DishCard({ dish, category, onOpen }) {
         <h3 className="font-display text-base font-semibold leading-tight text-ink">{tl(dish.name)}</h3>
         <p className="line-clamp-2 flex-1 text-xs text-muted">{tl(dish.description)}</p>
         <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="font-display text-lg font-bold text-accent">
+          <span className="whitespace-nowrap font-display text-lg font-bold text-accent">
             {sizes.length > 0 ? (
               <>
                 {formatPrice(Math.min(...sizes.map((s) => s.price)))}
@@ -68,19 +74,23 @@ export default function DishCard({ dish, category, onOpen }) {
               formatUnitPrice(dish.price, dish.unit)
             )}
           </span>
-          <button
-            onClick={handleAdd}
-            disabled={soldOut}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-              soldOut
-                ? 'cursor-not-allowed bg-surface-2 text-muted'
-                : justAdded
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-accent text-accent-ink active:scale-95'
-            }`}
-          >
-            {soldOut ? t.outOfStock : justAdded ? `✓ ${t.added}` : `+ ${t.add}`}
-          </button>
+          {cartLine ? (
+            <div className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-1 py-1 text-accent-ink">
+              <button onClick={(e) => step(e, -1)} className="grid h-5 w-5 place-items-center rounded text-sm font-bold active:scale-90" aria-label="−">−</button>
+              <span className="w-4 text-center text-xs font-bold">{cartLine.qty}</span>
+              <button onClick={(e) => step(e, 1)} className="grid h-5 w-5 place-items-center rounded text-sm font-bold active:scale-90" aria-label="+">+</button>
+            </div>
+          ) : (
+            <button
+              onClick={handleAdd}
+              disabled={soldOut}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                soldOut ? 'cursor-not-allowed bg-surface-2 text-muted' : 'bg-accent text-accent-ink active:scale-95'
+              }`}
+            >
+              {soldOut ? t.outOfStock : `+ ${t.add}`}
+            </button>
+          )}
         </div>
       </div>
     </article>

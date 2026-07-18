@@ -200,27 +200,31 @@ export default function AIChat() {
             {loading && <div className="text-left"><span className="inline-block rounded-2xl bg-surface-2 px-3 py-2 text-sm text-muted">●●●</span></div>}
           </div>
 
-          <div className="flex gap-2 border-t border-line p-2">
+          <div className="flex gap-1.5 border-t border-line p-2">
+            {/* min-w-0 is required: a flex child with text content otherwise
+                refuses to shrink below its content's intrinsic width (here the
+                placeholder), pushing the mic/send buttons out of the panel —
+                which has overflow-hidden, so they were rendering clipped. */}
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder={transcribing ? t.transcribing : recording ? t.listening : t.aiPlaceholder}
               disabled={recording || transcribing}
-              className="flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:border-accent disabled:opacity-70"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:border-accent disabled:opacity-70"
             />
             <button
               onClick={toggleRecording}
               disabled={loading || transcribing}
               aria-label={t.voice}
               title={t.voice}
-              className={`grid w-10 shrink-0 place-items-center rounded-xl text-lg transition disabled:opacity-50 ${
+              className={`grid w-9 shrink-0 place-items-center rounded-xl text-lg transition disabled:opacity-50 ${
                 recording ? 'animate-pulse bg-red-600 text-white' : 'bg-surface-2 text-ink hover:bg-surface'
               }`}
             >
               {transcribing ? '…' : recording ? '⏹' : '🎤'}
             </button>
-            <button onClick={() => send()} disabled={loading || recording} className="rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-50">
+            <button onClick={() => send()} disabled={loading || recording} className="shrink-0 rounded-xl bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-50">
               {t.send}
             </button>
           </div>
