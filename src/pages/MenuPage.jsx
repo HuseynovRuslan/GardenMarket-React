@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Navbar from '../components/Navbar.jsx';
 import CategoryFilter from '../components/CategoryFilter.jsx';
@@ -9,7 +9,6 @@ import CartBar from '../components/CartBar.jsx';
 import AIChat from '../components/AIChat.jsx';
 import ContactBar from '../components/ContactBar.jsx';
 import RestaurantInfo from '../components/RestaurantInfo.jsx';
-import Pagination from '../components/Pagination.jsx';
 import PromotionBanner from '../components/PromotionBanner.jsx';
 import { assetUrl } from '../api.js';
 
@@ -39,6 +38,12 @@ export default function MenuPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [modalDish, setModalDish] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Infinite scroll: pages accumulate into `dishes`; this sentinel sits under
+  // the grid and requests the next page when it scrolls into view. The request
+  // id guards against a stale response (e.g. an old page racing a filter reset)
+  // being appended after the list was replaced.
+  const sentinelRef = useRef(null);
+  const reqIdRef = useRef(0);
 
   useEffect(() => {
     setPage(1);
@@ -95,8 +100,8 @@ export default function MenuPage() {
           return `${searchableText(dish.name)} ${searchableText(dish.description)}`.toLowerCase().includes(query);
         });
       const limit = 12;
-      const start = (page - 1) * limit;
-      setDishes(filtered.slice(start, start + limit));
+      // accumulate: show everything up to the current page
+      setDishes(filtered.slice(0, page * limit));
       setTotalPages(Math.max(1, Math.ceil(filtered.length / limit)));
       setLoading(false);
       return;
@@ -110,18 +115,41 @@ export default function MenuPage() {
     }
 
     setLoading(true);
+    const reqId = ++reqIdRef.current;
     const params = new URLSearchParams({ page: String(page), limit: '12' });
     if (activeCat) params.set('category_id', String(activeCat));
     if (debounced) params.set('search', debounced);
     fetch(`${apiUrl}/menu/dishes?${params}`)
       .then((r) => r.json())
       .then((data) => {
-        setDishes(data.items || []);
+        if (reqIdRef.current !== reqId) return; // a newer request superseded this one
+        const items = data.items || [];
+        setDishes((prev) => {
+          if (page === 1) return items;
+          // guard against duplicates if the same page ever lands twice
+          const seen = new Set(prev.map((d) => d.id));
+          return [...prev, ...items.filter((d) => !seen.has(d.id))];
+        });
         setTotalPages(data.totalPages || 1);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (reqIdRef.current === reqId) setLoading(false); });
   }, [activeRestaurant, apiUrl, page, activeCat, debounced]);
+
+  // Ask for the next page as soon as the sentinel under the grid comes near the
+  // viewport (rootMargin pre-loads before the customer actually hits the end).
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loading && page < totalPages) setPage((p) => p + 1);
+      },
+      { rootMargin: '600px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loading, page, totalPages]);
 
   const categoryFor = useMemo(() => {
     const map = {};
@@ -159,7 +187,7 @@ export default function MenuPage() {
           <CategoryFilter categories={visibleCategories} active={activeCat} onChange={setActiveCat} />
         </div>
 
-        {loading ? (
+        {loading && page === 1 ? (
           <div className="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-56 animate-pulse rounded-2xl border border-line bg-surface" />
@@ -175,7 +203,15 @@ export default function MenuPage() {
           </div>
         )}
 
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        {/* infinite-scroll sentinel + "loading more" dots */}
+        <div ref={sentinelRef} aria-hidden="true" />
+        {loading && page > 1 && (
+          <div className="flex justify-center gap-1.5 py-6" aria-label="Yüklənir">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-accent" style={{ animationDelay: `${i * 0.12}s` }} />
+            ))}
+          </div>
+        )}
       </main>
 
       <RestaurantInfo />
