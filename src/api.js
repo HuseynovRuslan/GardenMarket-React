@@ -18,10 +18,25 @@ export function apiUrlFor(restaurant) {
   return `${apiBaseFor(restaurant)}/api`;
 }
 
+// Photos stored on Cloudinary are served at whatever size was uploaded. Ask the
+// CDN for a display-sized copy instead: w_700 caps the width, q_auto picks a
+// quality, f_auto delivers WebP/AVIF where supported. Local /uploads photos are
+// already resized on upload (see the API's optimizeImage), so this only matters
+// when Cloudinary is configured.
+const CLOUDINARY_TRANSFORM = 'w_700,q_auto,f_auto';
+function cdnOptimized(url) {
+  if (typeof url !== 'string') return url;
+  const marker = '/image/upload/';
+  if (!url.includes('res.cloudinary.com') || !url.includes(marker)) return url;
+  const rest = url.slice(url.indexOf(marker) + marker.length);
+  if (/^[^/]*\b(?:w|h|q|f|c)_/.test(rest)) return url; // already transformed
+  return url.replace(marker, `${marker}${CLOUDINARY_TRANSFORM}/`);
+}
+
 // Resolve a server-relative asset path (e.g. "/uploads/x.png") to an absolute URL.
 export function assetUrl(path, base = API_BASE) {
   if (!path) return path;
-  if (/^(https?:|data:|blob:)/i.test(path)) return path;
+  if (/^(https?:|data:|blob:)/i.test(path)) return cdnOptimized(path);
   if (path.startsWith('/uploads/')) return `${(base || API_BASE).replace(/\/$/, '')}${path}`;
   return path;
 }
