@@ -79,9 +79,11 @@ export function AppProvider({ children }) {
     setTheme((p) => (p === 'dark' ? 'light' : 'dark'));
   }, []);
 
-  const rates = (() => {
+  // Memoised: a fresh object here would invalidate convertPrice → formatPrice →
+  // formatUnitPrice on every render, and with them the whole context value.
+  const rates = useMemo(() => {
     try { return JSON.parse(settings.currency_rates || '{}'); } catch { return {}; }
-  })();
+  }, [settings.currency_rates]);
 
   const convertPrice = useCallback((priceAZN) => {
     const rate = rates[currency] ?? 1;
@@ -102,7 +104,12 @@ export function AppProvider({ children }) {
   // Short label for one unit of sale, e.g. "kq" — used next to quantities.
   const unitLabel = useCallback((unit) => t.units?.[unit] || t.units?.piece || '', [t]);
 
-  const value = {
+  const tlBound = useCallback((v) => tl(v, language), [language]);
+
+  // Memoised so a provider render doesn't force every consumer (navbar, each
+  // product card, cart bar, chat) to re-render just because the object identity
+  // changed.
+  const value = useMemo(() => ({
     settings,
     restaurant,
     activeRestaurant,
@@ -113,12 +120,16 @@ export function AppProvider({ children }) {
     currency, setCurrency,
     theme, setTheme, toggleTheme,
     t,
-    tl: (v) => tl(v, language),
+    tl: tlBound,
     convertPrice,
     formatPrice,
     formatUnitPrice,
     unitLabel,
-  };
+  }), [
+    settings, restaurant, activeRestaurant, routeSlug, apiBase, apiUrl,
+    language, currency, theme, toggleTheme, t, tlBound,
+    convertPrice, formatPrice, formatUnitPrice, unitLabel,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

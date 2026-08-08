@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useApp } from './AppContext.jsx';
 
 const CartContext = createContext(null);
@@ -37,8 +37,10 @@ export function CartProvider({ children }) {
     try { localStorage.setItem(storageKey, JSON.stringify(items)); } catch { /* ignore */ }
   }, [items, storageKey]);
 
+  // All handlers are stable (state updates go through the functional form), so
+  // adding to the cart doesn't hand every product card a new callback identity.
   // `size` is an optional { label, price } pack variant (e.g. rice 1 kq / 5 kq).
-  const add = (dish, qty = 1, size = null) => {
+  const add = useCallback((dish, qty = 1, size = null) => {
     const key = lineKey(dish.id, size?.label);
     const price = size ? size.price : dish.price;
     setItems((prev) => {
@@ -48,22 +50,27 @@ export function CartProvider({ children }) {
       }
       return [...prev, { ...dish, key, size: size?.label || null, price, qty }];
     });
-  };
+  }, []);
 
-  const remove = (key) => setItems((prev) => prev.filter((i) => i.key !== key));
+  const remove = useCallback((key) => setItems((prev) => prev.filter((i) => i.key !== key)), []);
 
-  const updateQty = (key, qty) => {
+  const updateQty = useCallback((key, qty) => {
     if (qty <= 0) return remove(key);
     setItems((prev) => prev.map((i) => (i.key === key ? { ...i, qty } : i)));
-  };
+  }, [remove]);
 
-  const clear = () => setItems([]);
+  const clear = useCallback(() => setItems([]), []);
 
-  const count = items.reduce((n, i) => n + i.qty, 0);
-  const totalAZN = items.reduce((s, i) => s + Number(i.price) * i.qty, 0);
+  const count = useMemo(() => items.reduce((n, i) => n + i.qty, 0), [items]);
+  const totalAZN = useMemo(() => items.reduce((s, i) => s + Number(i.price) * i.qty, 0), [items]);
+
+  const value = useMemo(
+    () => ({ items, add, remove, updateQty, clear, count, totalAZN }),
+    [items, add, remove, updateQty, clear, count, totalAZN],
+  );
 
   return (
-    <CartContext.Provider value={{ items, add, remove, updateQty, clear, count, totalAZN }}>
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );

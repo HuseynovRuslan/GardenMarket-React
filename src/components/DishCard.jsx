@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { assetUrl, dishSizes, isOutOfStock } from '../api.js';
 import { CategoryIcon } from '../categoryIcons.jsx';
 
-export default function DishCard({ dish, category, onOpen }) {
+function DishCard({ dish, category, onOpen }) {
   const { tl, formatPrice, formatUnitPrice, t, apiBase } = useApp();
   const { items, add, updateQty } = useCart();
   const sizes = dishSizes(dish);
@@ -41,6 +42,7 @@ export default function DishCard({ dish, category, onOpen }) {
             src={assetUrl(dish.image, apiBase)}
             alt=""
             loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
           />
         ) : (
@@ -99,3 +101,8 @@ export default function DishCard({ dish, category, onOpen }) {
     </article>
   );
 }
+
+// Typing in the search box re-renders MenuPage on every keystroke; without this
+// the whole product grid re-renders with it. All three props are stable
+// (rows from state, memoised category lookup, setState callback).
+export default memo(DishCard);
