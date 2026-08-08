@@ -13,6 +13,10 @@
     <title>GardenMarket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Products and their photos come from another origin, so the browser
+         would otherwise pay DNS + TCP + TLS (~250ms) only after React has
+         mounted and issued the first request. Warm it up during page parse. -->
+    <link rel="preconnect" href="https://gardenmarket-api.bahram.site" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>

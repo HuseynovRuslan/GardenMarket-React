@@ -197,8 +197,8 @@ export default function MenuPage() {
           <p className="py-16 text-center text-muted">{t.noResults}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-3 lg:grid-cols-4">
-            {visibleDishes.map((d) => (
-              <DishCard key={d.id} dish={d} category={categoryFor(d.category_id)} onOpen={setModalDish} />
+            {visibleDishes.map((d, i) => (
+              <DishCard key={d.id} dish={d} category={categoryFor(d.category_id)} onOpen={setModalDish} priority={i < 4} />
             ))}
           </div>
         )}

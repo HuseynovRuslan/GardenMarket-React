@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { assetUrl, dishSizes, isOutOfStock } from '../api.js';
 import { CategoryIcon } from '../categoryIcons.jsx';
 
-function DishCard({ dish, category, onOpen }) {
+function DishCard({ dish, category, onOpen, priority = false }) {
   const { tl, formatPrice, formatUnitPrice, t, apiBase } = useApp();
   const { items, add, updateQty } = useCart();
   const sizes = dishSizes(dish);
@@ -41,7 +41,10 @@ function DishCard({ dish, category, onOpen }) {
           <img
             src={assetUrl(dish.image, apiBase)}
             alt=""
-            loading="lazy"
+            // Above-the-fold cards load eagerly: lazy-loading them delays the
+            // first thing the customer actually looks at.
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : 'auto'}
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
           />
