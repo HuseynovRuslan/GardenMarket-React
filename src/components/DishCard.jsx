@@ -82,7 +82,7 @@ function DishCard({ dish, category, onOpen, priority = false }) {
           <div className="truncate font-display text-lg font-bold text-accent">
             {sizes.length > 0 ? (
               <>
-                {formatPrice(Math.min(...sizes.map((s) => s.price)))}
+                {(hasNamedVariants(sizes) ? formatUnitPrice : formatPrice)(Math.min(...sizes.map((s) => s.price)), dish.unit)}
                 <span className="ml-1 text-[10px] font-medium text-muted">{variantHint}</span>
               </>
             ) : (

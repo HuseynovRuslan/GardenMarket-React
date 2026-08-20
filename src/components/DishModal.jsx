@@ -18,9 +18,11 @@ export default function DishModal({ dish, category, onClose }) {
   const samePrice = sizes.length > 0 && sizes.every((s) => Number(s.price) === Number(sizes[0].price));
   // A variety can carry its own photo (the thyme bottle, the dill bottle…).
   const image = size?.image || dish.image;
-  // A pack variant carries its own absolute price, so the per-unit suffix
-  // ("/kq") only makes sense for the plain, unpacked price.
-  const priceLabel = size ? formatPrice(price) : formatUnitPrice(price, dish.unit);
+  // A pack variant ("5 kq") carries its own absolute price, so it drops the
+  // per-unit suffix; a named variety (yellow / cherry tomatoes) is still sold
+  // by the product's unit, so "/kq" stays.
+  const fmt = (p) => (size && !named ? formatPrice(p) : formatUnitPrice(p, dish.unit));
+  const priceLabel = fmt(price);
 
   const ingredients = tl(dish.ingredients);
   const ingList = Array.isArray(ingredients) ? ingredients : [];
@@ -89,7 +91,7 @@ export default function DishModal({ dish, category, onClose }) {
                         : 'border-line bg-bg text-ink hover:border-accent'
                     }`}
                   >
-                    {tl(s.label)}{samePrice ? '' : ` · ${formatPrice(s.price)}`}
+                    {tl(s.label)}{samePrice ? '' : ` · ${fmt(s.price)}`}
                   </button>
                 ))}
               </div>
