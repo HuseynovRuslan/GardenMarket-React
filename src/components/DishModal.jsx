@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { assetUrl, dishSizes, isOutOfStock } from '../api.js';
+import { assetUrl, dishSizes, hasNamedVariants, isOutOfStock, sizeKey } from '../api.js';
 import { CategoryIcon } from '../categoryIcons.jsx';
 
 export default function DishModal({ dish, category, onClose }) {
@@ -13,6 +13,11 @@ export default function DishModal({ dish, category, onClose }) {
 
   const price = size ? size.price : dish.price;
   const soldOut = isOutOfStock(dish);
+  const named = hasNamedVariants(sizes);
+  // Every flavour at the same price → don't repeat "· 5.00 ₼" on eight buttons.
+  const samePrice = sizes.length > 0 && sizes.every((s) => Number(s.price) === Number(sizes[0].price));
+  // A variety can carry its own photo (the thyme bottle, the dill bottle…).
+  const image = size?.image || dish.image;
   // A pack variant carries its own absolute price, so the per-unit suffix
   // ("/kq") only makes sense for the plain, unpacked price.
   const priceLabel = size ? formatPrice(price) : formatUnitPrice(price, dish.unit);
@@ -37,8 +42,8 @@ export default function DishModal({ dish, category, onClose }) {
         className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-surface sm:rounded-3xl"
       >
         <div className="relative grid h-56 place-items-center overflow-hidden bg-surface-2 sm:h-64">
-          {dish.image ? (
-            <img src={assetUrl(dish.image, apiBase)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {image ? (
+            <img key={image} src={assetUrl(image, apiBase)} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             category ? <CategoryIcon category={category} size={64} boxed={false} /> : <span className="text-7xl">🛒</span>
           )}
@@ -71,20 +76,20 @@ export default function DishModal({ dish, category, onClose }) {
 
           {sizes.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t.size}</h3>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{named ? t.variant : t.size}</h3>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((s) => (
                   <button
-                    key={s.label}
+                    key={sizeKey(s)}
                     type="button"
                     onClick={() => setSize(s)}
                     className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                      size?.label === s.label
+                      sizeKey(size) === sizeKey(s)
                         ? 'border-accent bg-accent text-accent-ink'
                         : 'border-line bg-bg text-ink hover:border-accent'
                     }`}
                   >
-                    {s.label} · {formatPrice(s.price)}
+                    {tl(s.label)}{samePrice ? '' : ` · ${formatPrice(s.price)}`}
                   </button>
                 ))}
               </div>

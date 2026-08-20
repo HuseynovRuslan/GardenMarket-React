@@ -94,9 +94,14 @@ export default function AIChat() {
 
   if (!apiUrl || activeRestaurant?.aiEnabled === false) return null;
 
+  // A resolved variety carries its own price; otherwise the base price applies.
+  const linePrice = (c) => Number(c.variant?.price ?? c.price);
+
   // Add every product the assistant parsed from the order, with its quantity.
   const addAll = (cart, idx) => {
-    cart.forEach((c) => add(c, c.qty, dishSizes(c)[0] || null));
+    // The assistant may have resolved a named variety ("kəklikotulu") → use it;
+    // otherwise fall back to the first variant, as tapping "+ Add" would.
+    cart.forEach((c) => add(c, c.qty, c.variant || dishSizes(c)[0] || null));
     setAddedAllIdx(idx);
     setTimeout(() => setAddedAllIdx(null), 2000);
   };
@@ -173,13 +178,14 @@ export default function AIChat() {
                       {m.cart.map((c) => (
                         <div key={c.id} className="flex items-center gap-2">
                           <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-base">
-                            {c.image ? <img src={assetUrl(c.image, apiBase)} alt="" className="h-full w-full object-cover" /> : '🛒'}
+                            {(c.variant?.image || c.image) ? <img src={assetUrl(c.variant?.image || c.image, apiBase)} alt="" className="h-full w-full object-cover" /> : '🛒'}
                           </div>
                           <div className="min-w-0 flex-1 text-xs leading-tight">
                             <span className="font-semibold text-ink">{tl(c.name)}</span>
+                            {c.variant ? <span className="ml-1 rounded bg-surface-2 px-1 py-0.5 text-[10px] font-semibold text-muted">{tl(c.variant.label)}</span> : null}
                             <span className="text-muted"> × {c.qty} {unitLabel(c.unit)}</span>
                           </div>
-                          <span className="shrink-0 text-[11px] font-semibold text-accent">{formatPrice(c.price * c.qty)}</span>
+                          <span className="shrink-0 text-[11px] font-semibold text-accent">{formatPrice(linePrice(c) * c.qty)}</span>
                         </div>
                       ))}
                     </div>
@@ -191,7 +197,7 @@ export default function AIChat() {
                     >
                       {addedAllIdx === i
                         ? `✓ ${t.added}`
-                        : `🧺 ${t.addAll} · ${formatPrice(m.cart.reduce((s, c) => s + c.price * c.qty, 0))}`}
+                        : `🧺 ${t.addAll} · ${formatPrice(m.cart.reduce((s, c) => s + linePrice(c) * c.qty, 0))}`}
                     </button>
                   </div>
                 )}

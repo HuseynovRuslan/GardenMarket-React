@@ -33,7 +33,7 @@ export default function CartDrawer({ open, onClose }) {
     // render it as a broken � in the WhatsApp text.
     const lines = items.map((i) => {
       const u = unitLabel ? unitLabel(i.unit) : '';
-      const sz = i.size ? ` (${i.size})` : '';
+      const sz = i.size ? ` (${tl(i.size)})` : '';
       return `• ${tl(i.name)}${sz}: ${i.qty} × ${formatPrice(i.price)}${u ? `/${u}` : ''} = ${formatPrice(i.price * i.qty)}`;
     });
     const header = tl(settings.restaurant_name) || 'GardenMarket';
@@ -50,7 +50,7 @@ export default function CartDrawer({ open, onClose }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            items: items.map((i) => ({ id: i.id, name: tl(i.name), size: i.size || null, unit: i.unit || 'piece', qty: i.qty, price: convertPrice(i.price) })),
+            items: items.map((i) => ({ id: i.id, name: tl(i.name), size: i.size ? tl(i.size) : null, unit: i.unit || 'piece', qty: i.qty, price: convertPrice(i.price) })),
             total: convertPrice(payableAZN),
             currency,
             fulfillment_type: fulfillment,
@@ -115,7 +115,7 @@ export default function CartDrawer({ open, onClose }) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-display text-base font-semibold text-ink">
                       {tl(i.name)}
-                      {i.size ? <span className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{i.size}</span> : null}
+                      {i.size ? <span className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted">{tl(i.size)}</span> : null}
                     </div>
                     <div className="text-sm text-muted">{formatPrice(i.price)}</div>
                   </div>

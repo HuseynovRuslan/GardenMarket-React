@@ -41,18 +41,35 @@ export function assetUrl(path, base = API_BASE) {
   return path;
 }
 
-// Parse a product's `sizes` column (JSON array of { label, price } in AZN) into
-// a clean array. For a grocery store these are pack variants (1 kq / 5 kq).
-// Returns [] when the product has no variants — callers then fall back to the
-// plain `price` field.
+// Parse a product's `sizes` column (JSON array of { label, price, image? } in
+// AZN) into a clean array. These are the product's variants: either pack sizes
+// (label "1 kq" / "5 kq") or named varieties, where `label` is a per-language
+// object ({ az: 'Kəklikotulu', en: 'Thyme', … }) and `image` an optional photo
+// of that variety. Returns [] when the product has no variants — callers then
+// fall back to the plain `price` field.
 export function dishSizes(dish) {
   if (!dish || dish.sizes == null) return [];
   try {
     const arr = typeof dish.sizes === 'string' ? JSON.parse(dish.sizes) : dish.sizes;
-    return Array.isArray(arr) ? arr.filter((s) => s && s.label != null && s.price != null) : [];
+    return Array.isArray(arr) ? arr.filter((s) => s && sizeKey(s) && s.price != null) : [];
   } catch {
     return [];
   }
+}
+
+// Stable, language-independent identifier for a variant — used for cart line
+// keys and React keys, so switching the UI language doesn't split a cart line.
+export function sizeKey(size) {
+  const l = size?.label;
+  if (l == null) return '';
+  if (typeof l === 'string') return l;
+  if (typeof l === 'object') return l.az || l.en || Object.values(l).find(Boolean) || '';
+  return String(l);
+}
+
+// True when the variants are named varieties (flavours) rather than pack sizes.
+export function hasNamedVariants(sizes) {
+  return sizes.some((s) => s.label && typeof s.label === 'object');
 }
 
 // Units of sale, mirroring UNITS in the API's db/database.js.

@@ -29,6 +29,9 @@ const strings = {
     clearCart: 'Clear cart',
     orderViaWhatsapp: 'Order via WhatsApp',
     size: 'Pack',
+    // Named varieties (flavours) of one product, e.g. the cold-pressed oils.
+    variant: 'Variety',
+    variantsCount: (n) => `${n} varieties`,
     ingredients: 'Ingredients',
     nutrition: 'Per 100 g',
     calories: 'Calories',
@@ -97,6 +100,12 @@ const strings = {
     clearCart: 'Очистить корзину',
     orderViaWhatsapp: 'Заказать в WhatsApp',
     size: 'Упаковка',
+    variant: 'Вид',
+    variantsCount: (n) => {
+      const m10 = n % 10, m100 = n % 100;
+      const w = m10 === 1 && m100 !== 11 ? 'вид' : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? 'вида' : 'видов';
+      return `${n} ${w}`;
+    },
     ingredients: 'Состав',
     nutrition: 'На 100 г',
     calories: 'Калории',
@@ -164,6 +173,8 @@ const strings = {
     clearCart: 'Səbəti təmizlə',
     orderViaWhatsapp: 'WhatsApp ilə sifariş et',
     size: 'Qablaşdırma',
+    variant: 'Növ',
+    variantsCount: (n) => `${n} növ`,
     ingredients: 'Tərkib',
     nutrition: '100 q üçün',
     calories: 'Kalori',
@@ -231,6 +242,8 @@ const strings = {
     clearCart: 'Sepeti temizle',
     orderViaWhatsapp: "WhatsApp'tan sipariş ver",
     size: 'Paket',
+    variant: 'Çeşit',
+    variantsCount: (n) => `${n} çeşit`,
     ingredients: 'İçindekiler',
     nutrition: '100 g için',
     calories: 'Kalori',

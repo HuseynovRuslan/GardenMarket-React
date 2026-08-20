@@ -10,7 +10,7 @@ import AIChat from '../components/AIChat.jsx';
 import ContactBar from '../components/ContactBar.jsx';
 import RestaurantInfo from '../components/RestaurantInfo.jsx';
 import PromotionBanner from '../components/PromotionBanner.jsx';
-import { assetUrl } from '../api.js';
+import { assetUrl, dishSizes } from '../api.js';
 
 function searchableText(value) {
   if (value == null) return '';
@@ -97,7 +97,9 @@ export default function MenuPage() {
         .filter((dish) => !activeCat || dish.category_id === activeCat)
         .filter((dish) => {
           if (!query) return true;
-          return `${searchableText(dish.name)} ${searchableText(dish.description)}`.toLowerCase().includes(query);
+          // Variant names too, so "kəklikotulu" finds the oil that has it as a variety.
+          const variants = dishSizes(dish).map((s) => searchableText(s.label)).join(' ');
+          return `${searchableText(dish.name)} ${searchableText(dish.description)} ${variants}`.toLowerCase().includes(query);
         });
       const limit = 12;
       // accumulate: show everything up to the current page

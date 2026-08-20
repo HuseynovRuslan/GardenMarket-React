@@ -237,11 +237,24 @@ function DishesTab({ headers }) {
     fd.append('description', JSON.stringify(form.description));
     fd.append('ingredients', JSON.stringify(form.ingredients));
     ['price', 'category_id', 'unit', 'stock_qty', 'sku', 'calories', 'weight', 'is_featured', 'is_available'].forEach((k) => fd.append(k, form[k] ?? ''));
-    // Normalize sizes: drop blank rows and coerce prices to numbers.
+    // Normalize variants: drop blank rows and coerce prices to numbers. A label
+    // is either a plain string (pack size) or a per-language object (named
+    // variety); a row may also carry its own photo.
     let sizes = [];
     try { sizes = JSON.parse(form.sizes || '[]'); } catch { /* ignore */ }
     sizes = (Array.isArray(sizes) ? sizes : [])
-      .map((s) => ({ label: String(s.label || '').trim(), price: Number(s.price) }))
+      .map((s) => {
+        let label = s.label;
+        if (label && typeof label === 'object') {
+          label = Object.fromEntries(Object.entries(label).map(([k, v]) => [k, String(v || '').trim()]).filter(([, v]) => v));
+          if (!Object.keys(label).length) label = '';
+        } else {
+          label = String(label || '').trim();
+        }
+        const row = { label, price: Number(s.price) };
+        if (s.image) row.image = s.image;
+        return row;
+      })
       .filter((s) => s.label && Number.isFinite(s.price));
     fd.append('sizes', JSON.stringify(sizes));
     // new upload wins; otherwise send the current path (empty string = remove existing photo)
@@ -309,6 +322,15 @@ function DishForm({ form: initial, cats, onCancel, onSave }) {
   const updateSize = (i, key, val) => syncSizes(sizes.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)));
   const addSize = () => syncSizes([...sizes, { label: '', price: '' }]);
   const removeSize = (i) => syncSizes(sizes.filter((_, idx) => idx !== i));
+  // A pack size ("1 kq") is the same in every language; a named variety
+  // (thyme / dill…) needs a label per language. Toggle a row between the two.
+  const toggleSizeLang = (i) => {
+    const s = sizes[i];
+    const label = s.label && typeof s.label === 'object'
+      ? (s.label[lang] || s.label.az || s.label.en || Object.values(s.label).find(Boolean) || '')
+      : { [lang]: String(s.label || '') };
+    updateSize(i, 'label', label);
+  };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onCancel}>
@@ -351,25 +373,58 @@ function DishForm({ form: initial, cats, onCancel, onSave }) {
             <p className="text-xs text-muted">{t.noSizes}</p>
           ) : (
             <div className="space-y-2">
-              {sizes.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={s.label}
-                    onChange={(e) => updateSize(i, 'label', e.target.value)}
-                    placeholder={t.sizeLabelPh}
-                    className="w-1/2 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-                  />
-                  <input
-                    type="number"
-                    step="0.25"
-                    value={s.price}
-                    onChange={(e) => updateSize(i, 'price', e.target.value)}
-                    placeholder={t.priceAzn}
-                    className="w-1/2 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-                  />
-                  <button type="button" onClick={() => removeSize(i)} className="shrink-0 rounded-lg border border-line px-2 py-2 text-xs text-red-500">✕</button>
-                </div>
-              ))}
+              {sizes.map((s, i) => {
+                const perLang = !!s.label && typeof s.label === 'object';
+                return (
+                  <div key={i} className="rounded-lg border border-line p-2">
+                    <div className="flex items-center gap-2">
+                      {s.image ? (
+                        <img src={assetUrl(s.image)} alt="" title={t.sizeImageHint} className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                      ) : null}
+                      {perLang ? (
+                        <span className="w-1/2 text-xs text-muted">{s.label[lang] || s.label.az || s.label.en || Object.values(s.label).find(Boolean) || '…'}</span>
+                      ) : (
+                        <input
+                          value={s.label}
+                          onChange={(e) => updateSize(i, 'label', e.target.value)}
+                          placeholder={t.sizeLabelPh}
+                          className="w-1/2 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                        />
+                      )}
+                      <input
+                        type="number"
+                        step="0.25"
+                        value={s.price}
+                        onChange={(e) => updateSize(i, 'price', e.target.value)}
+                        placeholder={t.priceAzn}
+                        className="w-1/2 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleSizeLang(i)}
+                        title={t.sizeLangToggle}
+                        className={`shrink-0 rounded-lg border px-2 py-2 text-xs ${perLang ? 'border-accent bg-accent text-accent-ink' : 'border-line text-ink'}`}
+                      >
+                        🌐
+                      </button>
+                      <button type="button" onClick={() => removeSize(i)} className="shrink-0 rounded-lg border border-line px-2 py-2 text-xs text-red-500">✕</button>
+                    </div>
+                    {perLang ? (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {LANG_CODES.map((c) => (
+                          <input
+                            key={c}
+                            value={s.label[c] || ''}
+                            onChange={(e) => updateSize(i, 'label', { ...s.label, [c]: e.target.value })}
+                            placeholder={c.toUpperCase()}
+                            className="rounded-lg border border-line bg-bg px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
               <p className="text-[11px] text-muted">{t.sizeTip}</p>
             </div>
           )}

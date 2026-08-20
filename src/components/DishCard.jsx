@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { assetUrl, dishSizes, isOutOfStock } from '../api.js';
+import { assetUrl, dishSizes, hasNamedVariants, isOutOfStock } from '../api.js';
 import { CategoryIcon } from '../categoryIcons.jsx';
 
 function DishCard({ dish, category, onOpen, priority = false }) {
@@ -9,6 +9,13 @@ function DishCard({ dish, category, onOpen, priority = false }) {
   const { items, add, updateQty } = useCart();
   const sizes = dishSizes(dish);
   const soldOut = isOutOfStock(dish);
+  // Pack sizes read fine inline ("1 kq/5 kq"); a list of eight flavours does
+  // not, so named or long variant lists collapse to a count.
+  const variantHint = sizes.length === 0
+    ? ''
+    : hasNamedVariants(sizes) || sizes.length > 3
+      ? t.variantsCount(sizes.length)
+      : sizes.map((s) => tl(s.label)).join('/');
 
   // Once the item is in the cart, the Add button turns into a live −/+
   // stepper (matches this dish's actual cart line) so a second tap on the
@@ -76,7 +83,7 @@ function DishCard({ dish, category, onOpen, priority = false }) {
             {sizes.length > 0 ? (
               <>
                 {formatPrice(Math.min(...sizes.map((s) => s.price)))}
-                <span className="ml-1 text-[10px] font-medium text-muted">{sizes.map((s) => s.label).join('/')}</span>
+                <span className="ml-1 text-[10px] font-medium text-muted">{variantHint}</span>
               </>
             ) : (
               formatUnitPrice(dish.price, dish.unit)
